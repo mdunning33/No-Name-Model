@@ -3,7 +3,7 @@ title: "No Name LR Model"
 author: "Matt Dunning"
 date: "August 14, 2018"
 output:
-  html_document: default
+  output: rmarkdown::github_document
 ---
 
 Packages Used
