@@ -5,7 +5,11 @@ date: "August 14, 2018"
 output:
   output: rmarkdown::github_document
 ---
-
+```{r, echo = FALSE}
+knitr::opts_chunk$set(
+  fig.path = "README_figs/README-"
+)
+```
 Packages Used
 ```{r, message=FALSE, warning=FALSE}
 
