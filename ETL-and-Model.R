@@ -25,6 +25,28 @@ View(df_input)
 ##Filter out records with names, Excluding Source = MW1 from dataset --- (n=160931)
 df_temp <- filter(df_input, noname == 1)
 
+df_temp <- filter(df_temp, !BJsClub1 %in% c(038,
+                                            045,
+                                            048,
+                                            061,
+                                            062,
+                                            067,
+                                            093,
+                                            123,
+                                            129,
+                                            139,
+                                            141,
+                                            150,
+                                            168,
+                                            180,
+                                            184,
+                                            185,
+                                            189,
+                                            211,
+                                            318,
+                                            370
+)) 
+
 
 ##Subset prospect data
 ##Good vars determined by chi-sq test
@@ -39,8 +61,8 @@ good_vars <- c("REC_NBR",
                'CR_Penetration_Pct',
                'pct_bjs_mbrs',
                'Penetration_Rate',
-               'X2yr_Resp',
-               'X_3yr_Resp',
+               'X2yr_RR',
+               'X3yr_RR',
                'Mar18_Decile',
                'IC_MU_022418',
                'BJs_Adv',
@@ -163,6 +185,7 @@ df_test[,2:85]<- sapply(df_test[,2:85], FUN = "scale")
 ##Instantiate first model
 df_train$resp_flag <- as.factor(df_train$resp_flag)
 df_test$resp_flag <- as.factor(df_test$resp_flag)
+fit1_noouts <- glm(resp_flag ~ ., family = binomial, data = df_train)
 fit1 <- glm(resp_flag ~ ., family = binomial, data = df_train)
 
 
@@ -170,8 +193,8 @@ fit1 <- glm(resp_flag ~ ., family = binomial, data = df_train)
 summary(fit1)
 
 ##wald chi -sq
-wald <- Anova(fit1, type = "II", test="Wald")
-print(wald)
+waldouts <- Anova(fit1_noouts, type = "II", test="Wald")
+print(waldouts)
 
 #stores feature names as a column
 wald$cols <- rownames(wald)
@@ -309,4 +332,266 @@ roc_obj <- roc(df_test$resp_flag , df_test$preds)
 auc(roc_obj)
 plot(roc_obj)
 
+
+
+
+################################################################
+df_train <- subset(df_train, select = c("resp_flag",
+                                        "CR_Penetration_Pct",
+                                        "comp_distance_flag",
+                                        "X3yr_RR"
+                                        ))
+df_test <- subset(df_test, select = c("resp_flag",
+                                        "CR_Penetration_Pct",
+                                        "comp_distance_flag",
+                                        "X3yr_RR"
+))
+
+df_train$resp_flag <- as.factor(df_train$resp_flag)
+df_test$resp_flag <- as.factor(df_test$resp_flag)
+
+fit8_rr <- glm(resp_flag ~ ., family = binomial, data = df_train)
+
+
+wald8_rr <- Anova(fit8_rr, type = "II", test="Wald")
+print(wald8_rr)
+summary(fit8_rr)
+
+model2 <- train(as.factor(resp_flag) ~ ., method = "glm", family = "binomial", data = df_train)
+model2_noouts <- train(as.factor(resp_flag) ~ ., method = "glm", family = "binomial", data = df_train)
+
+
+##Stroing predictons
+preds2 <- predict(model2, type = "prob", newdata = df_test)
+df_test$preds <- preds2$`1`
+
+##no outlier model
+preds2_noouts <- predict(model2_noouts, type = "prob", newdata = df_test)
+df_test$preds <- preds2_noouts$`1`
+
+
+##Creating decile column
+df_test <- df_test %>%
+  mutate(decile = ntile(preds, 10))
+##drop these output vars to run again
+#df_test <- df_test[,-which(names(df_test) %in% c("decile", "preds"))]
+##
+###Reporting response rate predictioins per decile vs. actual and scoring
+df_decile_info_resamp <- df_test %>%
+  group_by(decile) %>%
+  summarise(dec_resp = mean(preds),
+            actual_resp = mean(as.numeric(resp_flag)-1))
+
+
+summary(fit8_noouts)
+roc_obj2_noouts <- roc(df_test$resp_flag , df_test$preds)
+auc(roc_obj2_noouts)
+plot(roc_obj2_noouts)
+
+
+
+##Evaluation
+roc_obj2 <- roc(df_test$resp_flag , df_test$preds)
+auc(roc_obj2)
+plot(roc_obj2)
+
+
+##################################################################
+
+
+
+
+
+df_train <- subset(df_train, select = c("resp_flag",
+                                        "CR_Penetration_Pct",
+                                        "X3yr_RR",
+                                        "avg_N02900"
+))
+df_test <- subset(df_test, select = c("resp_flag",
+                                        "CR_Penetration_Pct",
+                                        "X3yr_RR",
+                                        "avg_N02900"
+))
+
+df_train <- filter(df_train, CR_Penetration_Pct < 13.0,
+                             X3yr_RR < 10.0,
+                             avg_N02900 > -3.0)
+df_test <- filter(df_test, CR_Penetration_Pct < 13.0,
+                   X3yr_RR < 10.0,
+                   avg_N02900 > -3.0)
+
+
+fit_rr_test2 <- glm(resp_flag ~ ., family = "binomial", data = df_train)
+wald_rr <- Anova(fit_rr_test2, type = "II", test="Wald")
+print(wald_rr)
+
+
+
+model3_noouts <- train(as.factor(resp_flag) ~ ., method = "glm", family = "binomial", data = df_train)
+
+##Stroing predictons
+preds3_noouts <- predict(model3_noouts, type = "prob", newdata = df_test)
+df_test$preds <- preds3_noouts$`1`
+
+
+##Creating decile column
+df_test <- df_test %>%
+  mutate(decile = ntile(preds, 10))
+##drop these output vars to run again
+#df_test <- df_test[,-which(names(df_test) %in% c("decile", "preds"))]
+##
+###Reporting response rate predictioins per decile vs. actual and scoring
+df_decile_info_resamp3 <- df_test %>%
+  group_by(decile) %>%
+  summarise(dec_resp = mean(preds),
+            actual_resp = mean(as.numeric(resp_flag)))
+
+##Evaluation
+roc_obj_rr <- roc(df_test$resp_flag , df_test$preds)
+auc(roc_obj_rr)
+plot(roc_obj_rr)
+
+##################################################################
+df_train$resp_flag <- as.factor(df_train$resp_flag)
+df_test$resp_flag <- as.factor(df_test$resp_flag)
+
+fit9 <- glm(resp_flag ~ ., family = binomial, data = df_train)
+
+
+wald9 <- Anova(fit9, type = "II", test="Wald")
+print(wald9)
+
+
+
+
+
+#####################################################33
+train_data1 <- subset(df_train, select = c("resp_flag",
+                                          "CR_Penetration_Pct",
+                                          "pct_bjs_mbrs",
+                                          "X_3yr_Resp",
+                                          "comp_distance_flag",
+                                          "avg_N00650",
+                                          "avg_N00600",
+                                          "avg_N02900",
+                                          "avg_N07240",
+                                          "avg_A18300"
+))
+
+test_data1 <- subset(df_test, select = c("resp_flag",
+                                           "CR_Penetration_Pct",
+                                           "pct_bjs_mbrs",
+                                           "X_3yr_Resp",
+                                           "comp_distance_flag",
+                                           "avg_N00650",
+                                           "avg_N00600",
+                                           "avg_N02900",
+                                           "avg_N07240",
+                                           "avg_A18300"
+))
+
+
+
+train_data1$resp_flag <- as.factor(train_data1$resp_flag)
+test_data1$resp_flag <- as.factor(test_data1$resp_flag)
+fit7 <- glm(resp_flag ~., family= "binomial", data = train_data1)
+
+wald7 <- Anova(fit7, type = "II", test="Wald")
+print(wald7)
+
+
+train_data1$pct_bjs_mbrs <- sqrt(train_data1$pct_bjs_mbrs)
+
+
+
+
+
+
+
+###
+
+
+
+
+#train new model
+fit2_resamp <- train(as.factor(resp_flag) ~ ., method = "glm", family = "binomial", data = df_train)
+fit2_2 <- glm(as.factor(resp_flag)~ ., family = "binomial", data = df_train)
+
+##Summary Statistics
+summary(fit2)
+summary(fit2_2)
+##Stroing predictons for resampling
+preds <- predict(fit2_resamp, type = "prob", newdata = df_test)
+df_test$preds <- preds$`1`
+
+##Storing probability predictions for resp_flag == 1
+preds <- predict(fit, type = "prob", newdata = df_test)
+df_test$preds <- preds$`1`
+
+##
+df_test <- df_test %>%
+  mutate(decile = ntile(preds, 10))
+##drop these output vars to run again
+#df_test <- df_test[,-which(names(df_test) %in% c("decile", "preds"))]
+##
+
+
+##summarizing by decile
+df_decile_info <- df_test %>%
+  group_by(decile) %>%
+  summarise(dec_resp = mean(preds))
+
+#
+df_decile_info_resamp <- df_test %>%
+  group_by(decile) %>%
+  summarise(dec_resp = mean(preds),
+            actual_resp = mean(resp_flag))
+
+##ROC Curve
+roc_obj <- roc(df_test$resp_flag ,preds$`1`)
+##Area under curve
+auc(roc_obj)
+
+
+
+##Wald chi sq test
+wald2 <- Anova(fit2_2, type = "II", test="Wald")
+print(wald2)
+
+
+#########################################################################
+##Keeping features with wald-chi sq greater than 1
+df_train <- subset(df_train, select = c("resp_flag",
+                                        "BJs_Mbrs", 
+                                        "BJsDist1", 
+                                        "X_3yr_Resp", 
+                                        "comp_distance_flag", 
+                                        "Past_Trls"))
+
+df_test <- subset(df_test, select = c("resp_flag",
+                                        "BJs_Mbrs", 
+                                        "BJsDist1", 
+                                        "X_3yr_Resp", 
+                                        "comp_distance_flag", 
+                                        "Past_Trls"))
+
+###
+fit2_resamp <- train(as.factor(resp_flag) ~ ., method = "glm", family = "binomial", data = df_train)
+
+
+summary(fit3_resamp)
+##
+preds <- predict(fit2_resamp, type = "prob", newdata = df_test)
+df_test$preds <- preds$`1`
+
+##deciles
+df_test <- df_test %>%
+  mutate(decile = ntile(preds, 10))
+
+
+##summarizing by decile
+df_decile_info_resamp <- df_test %>%
+  group_by(decile) %>%
+  summarise(dec_resp = mean(preds),
+            actual_resp = mean(resp_flag))
 
